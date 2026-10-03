@@ -1,0 +1,43 @@
+name: fetch termux apk
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/fetch-termux-apk.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: download termux arm64 apk
+        run: |
+          mkdir -p apk
+          curl -sSL --retry 3 --retry-delay 5 \
+            -o apk/termux-arm64.apk \
+            "https://github.com/termux/termux-app/releases/download/v0.118.3/termux-app_v0.118.3%2Bgithub-debug_arm64-v8a.apk"
+          ls -la apk/
+          SIZE=$(stat -c%s apk/termux-arm64.apk)
+          echo "size=$SIZE"
+          if [ "$SIZE" -lt 10000000 ]; then
+            echo "download looks broken, abort"
+            exit 1
+          fi
+          file apk/termux-arm64.apk || true
+
+      - name: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f apk/termux-arm64.apk
+          if git diff --cached --quiet; then
+            echo "no change"
+          else
+            git commit -m "add termux apk"
+            git push
+          fi
